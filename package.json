@@ -1,0 +1,88 @@
+{
+  "name": "homebridge-lovesac-stealthtech",
+  "version": "0.0.0-development",
+  "description": "Homebridge plugin for Lovesac StealthTech Sound + Charge BLE control",
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "config.schema.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build",
+    "scan": "node dist/scan.js",
+    "semantic-release": "semantic-release"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "lovesac",
+    "stealthtech",
+    "ble",
+    "bluetooth"
+  ],
+  "author": "Alex Rosenberg <alexr@leftfield.org>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ohmantics/homebridge-lovesac-stealthtech.git"
+  },
+  "homepage": "https://github.com/ohmantics/homebridge-lovesac-stealthtech",
+  "bugs": {
+    "url": "https://github.com/ohmantics/homebridge-lovesac-stealthtech/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/ohmantics"
+  },
+  "engines": {
+    "node": "^20.9.0 || ^22 || ^24",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+  },
+  "dependencies": {
+    "@stoprocent/noble": "^1.15.0"
+  },
+  "peerDependencies": {
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "conventional-changelog-conventionalcommits": "^8.0.0",
+    "homebridge": "^1.8.0",
+    "semantic-release": "^24.0.0",
+    "typescript": "^5.3.0"
+  },
+  "release": {
+    "branches": ["main"],
+    "plugins": [
+      [
+        "@semantic-release/commit-analyzer",
+        {
+          "preset": "conventionalcommits",
+          "releaseRules": [
+            {
+              "type": "build",
+              "scope": "deps",
+              "release": "patch"
+            }
+          ]
+        }
+      ],
+      [
+        "@semantic-release/release-notes-generator",
+        {
+          "preset": "conventionalcommits",
+          "presetConfig": {
+            "types": [
+              { "type": "feat", "section": "Features" },
+              { "type": "fix", "section": "Bug Fixes" },
+              { "type": "build", "section": "Dependencies", "hidden": false }
+            ]
+          }
+        }
+      ],
+      "@semantic-release/npm",
+      "@semantic-release/github"
+    ]
+  }
+}

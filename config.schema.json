@@ -1,0 +1,96 @@
+{
+  "pluginAlias": "LovesacStealthTech",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Control your Lovesac StealthTech Sound + Charge system via BLE.",
+  "footerDisplay": "The plugin will automatically discover your StealthTech device via Bluetooth. You only need to set the BLE address if auto-discovery doesn't work.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "devices": {
+        "title": "Devices",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Lovesac StealthTech",
+              "description": "The name of the accessory as it appears in HomeKit."
+            },
+            "address": {
+              "title": "BLE Address (optional)",
+              "type": "string",
+              "description": "Leave blank for auto-discovery. Only needed if you have multiple StealthTech devices or auto-discovery fails. Use `npx homebridge-lovesac-stealthtech scan` to find the address.",
+              "placeholder": "Auto-discover"
+            },
+            "idleTimeout": {
+              "title": "Idle Timeout (seconds)",
+              "type": "integer",
+              "default": 60,
+              "minimum": 10,
+              "maximum": 600,
+              "description": "Disconnect BLE after this many seconds of inactivity. Allows the Lovesac mobile app to connect."
+            },
+            "pollInterval": {
+              "title": "Poll Interval (seconds)",
+              "type": "integer",
+              "default": 90,
+              "minimum": 0,
+              "maximum": 600,
+              "description": "How often to check the device for state changes. Lower values give more responsive UI but keep the BLE connection active more often, which may prevent the Lovesac mobile app from connecting. Set to 0 to disable background polling. Should be greater than Idle Timeout to free the BLE slot between polls."
+            },
+            "volumeControl": {
+              "title": "Volume Control Type",
+              "type": "string",
+              "default": "fan",
+              "oneOf": [
+                { "title": "Fan (Recommended)", "enum": ["fan"] },
+                { "title": "Lightbulb", "enum": ["lightbulb"] },
+                { "title": "None (remote buttons only)", "enum": ["none"] }
+              ],
+              "description": "Accessory type used to expose volume as a percentage slider for Siri control."
+            },
+            "volumeStep": {
+              "title": "Volume Step",
+              "type": "integer",
+              "default": 2,
+              "minimum": 1,
+              "maximum": 5,
+              "description": "Volume increment/decrement for remote button presses."
+            },
+            "presets": {
+              "title": "Preset Switches",
+              "type": "object",
+              "properties": {
+                "movies": {
+                  "title": "Movies Mode",
+                  "type": "boolean",
+                  "default": true
+                },
+                "music": {
+                  "title": "Music Mode",
+                  "type": "boolean",
+                  "default": true
+                },
+                "tv": {
+                  "title": "TV Mode",
+                  "type": "boolean",
+                  "default": true
+                },
+                "news": {
+                  "title": "News Mode",
+                  "type": "boolean",
+                  "default": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": []
+        }
+      }
+    }
+  }
+}

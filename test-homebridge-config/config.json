@@ -1,0 +1,33 @@
+{
+    "bridge": {
+        "name": "Lovesac Test Bridge",
+        "username": "E2:D7:A1:94:27:6B",
+        "port": 51827,
+        "pin": "031-45-154"
+    },
+    "platforms": [
+        {
+            "platform": "config",
+            "name": "Config",
+            "port": 8581
+        },
+        {
+            "devices": [
+                {
+                    "name": "Lovesac StealthTech",
+                    "idleTimeout": 60,
+                    "volumeControl": "fan",
+                    "volumeStep": 2,
+                    "presets": {
+                        "movies": true,
+                        "music": true,
+                        "tv": true,
+                        "news": true
+                    }
+                }
+            ],
+            "platform": "LovesacStealthTech"
+        }
+    ],
+    "accessories": []
+}

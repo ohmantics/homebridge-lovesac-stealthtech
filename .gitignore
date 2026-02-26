@@ -1,0 +1,8 @@
+node_modules/
+dist/
+test-homebridge-config/persist/
+test-homebridge-config/accessories/
+test-homebridge-config/backups/
+test-homebridge-config/auth.json
+test-homebridge-config/.uix-*
+.DS_Store
