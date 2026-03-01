@@ -164,6 +164,7 @@ export class BleClient implements IBleClient {
       const cleanup = () => {
         noble.stopScanning();
         noble.removeListener('discover', onDiscover);
+        noble.removeListener('stateChange', onStateChange);
       };
 
       const timeout = setTimeout(() => {
@@ -183,18 +184,20 @@ export class BleClient implements IBleClient {
         });
       };
 
+      const onStateChange = (state: string) => {
+        if (state === 'poweredOn') {
+          startScan();
+        } else {
+          clearTimeout(timeout);
+          cleanup();
+          reject(new Error(`Bluetooth adapter state: ${state}`));
+        }
+      };
+
       if (noble.state === 'poweredOn') {
         startScan();
       } else {
-        noble.once('stateChange', (state: string) => {
-          if (state === 'poweredOn') {
-            startScan();
-          } else {
-            clearTimeout(timeout);
-            cleanup();
-            reject(new Error(`Bluetooth adapter state: ${state}`));
-          }
-        });
+        noble.once('stateChange', onStateChange);
       }
     });
   }
