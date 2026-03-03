@@ -465,6 +465,12 @@ export class LovesacAccessory {
           .updateValue(this.device.state.power
             ? this.Characteristic.Active.ACTIVE
             : this.Characteristic.Active.INACTIVE);
+        // Also refresh volume proxy — after unreachable recovery, Power may
+        // arrive before Volume/Mute, leaving the proxy stale at "Off".
+        if (this.volumeService) {
+          this.volumeService.getCharacteristic(this.Characteristic.On)
+            .updateValue(this.device.state.power && !this.device.state.mute && this.device.state.volume > 0);
+        }
         break;
 
       case ResponseCode.Volume:
