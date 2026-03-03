@@ -71,8 +71,10 @@ export class LovesacAccessory {
     // See: https://github.com/homebridge/homebridge/issues/3703
     this.tvService = this.accessory.addService(Service.Television, this.config.name, 'television');
     this.tvService.setPrimaryService(true);
-    this.tvService.setCharacteristic(this.Characteristic.SleepDiscoveryMode,
-      this.Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE);
+    this.tvService
+      .setCharacteristic(this.Characteristic.Active, this.Characteristic.Active.INACTIVE)
+      .setCharacteristic(this.Characteristic.SleepDiscoveryMode,
+        this.Characteristic.SleepDiscoveryMode.ALWAYS_DISCOVERABLE);
 
     // Use setValue() for ConfiguredName and Name to ensure proper HAP notification
     this.tvService.getCharacteristic(this.Characteristic.ConfiguredName).setValue(this.config.name);
