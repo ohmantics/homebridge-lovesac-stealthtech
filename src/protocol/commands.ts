@@ -95,7 +95,8 @@ export function requestDeviceInfo(): BleCommand {
   };
 }
 
-// Request version info (AA 01 01 01 — last byte 01 distinguishes from state request)
+// Request version info — uses a 4-byte payload (not formatB's 3-byte) because
+// the trailing 0x01 distinguishes it from the state request (AA 01 01 00).
 export function requestVersionInfo(): BleCommand {
   return {
     characteristicUuid: CharUUID.DeviceInfo,
