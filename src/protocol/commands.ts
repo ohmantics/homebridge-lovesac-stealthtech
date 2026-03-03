@@ -22,7 +22,7 @@ function eqCommand(subCmdId: number, value: number): BleCommand {
 
 // Volume: 0-36
 export function setVolume(volume: number): BleCommand {
-  return eqCommand(0x02, Math.max(0, Math.min(36, volume)));
+  return eqCommand(0x02, Math.max(0, Math.min(36, volume))); // MAX_VOLUME = 36 (from protocol)
 }
 
 // Bass: 0-20
