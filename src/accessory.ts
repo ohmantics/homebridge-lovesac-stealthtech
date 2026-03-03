@@ -333,10 +333,20 @@ export class LovesacAccessory {
   // --- Volume Proxy (Fan/Lightbulb) ---
 
   private async setVolumeOn(value: CharacteristicValue): Promise<void> {
-    if (!value) {
-      await this.device.setMute(true);
-    } else if (this.device.state.mute) {
-      await this.device.setMute(false);
+    try {
+      if (!value) {
+        await this.device.setMute(true);
+      } else {
+        if (this.device.state.mute) {
+          await this.device.setMute(false);
+        }
+        if (this.device.state.volume <= 0) {
+          await this.device.setVolume(this.config.volumeStep);
+        }
+      }
+    } catch (err) {
+      this.platform.log.error('setVolumeOn failed: %s', errorMessage(err));
+      throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
     }
   }
 
