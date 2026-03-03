@@ -142,11 +142,17 @@ export class BleConnectionManager {
       }
     } finally {
       this.processing = false;
+      if (this.connected) {
+        this.resetIdleTimer();
+      }
     }
   }
 
   private resetIdleTimer(): void {
     this.clearIdleTimer();
+    if (this.processing) {
+      return;
+    }
     this.idleTimer = setTimeout(() => {
       this.log.info('Idle timeout, disconnecting from %s', this.resolvedAddress);
       this.disconnect().catch((err) => {
