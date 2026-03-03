@@ -43,7 +43,9 @@ export class BleConnectionManager {
   async enqueue(command: BleCommand): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       this.queue.push({ command, resolve, reject });
-      this.processQueue();
+      this.processQueue().catch(err => {
+        this.log.error('processQueue error: %s', errorMessage(err));
+      });
     });
   }
 
