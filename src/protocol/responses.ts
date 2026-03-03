@@ -87,7 +87,7 @@ function inRange(value: number, min: number, max: number): boolean {
  * Apply a parsed response to the device state. Returns true if state changed.
  * Out-of-range values are logged and ignored to guard against firmware bugs.
  */
-export function applyResponse(state: DeviceState, response: ParsedResponse): boolean {
+export function applyResponse(state: DeviceState, response: ParsedResponse): boolean | typeof OUT_OF_RANGE {
   const { code, value } = response;
 
   switch (code) {
@@ -178,4 +178,4 @@ export function applyResponse(state: DeviceState, response: ParsedResponse): boo
 }
 
 /** Sentinel: applyResponse returns this for out-of-range values so the caller can log a warning. */
-export const OUT_OF_RANGE = 'out_of_range' as unknown as boolean;
+export const OUT_OF_RANGE = 'out_of_range' as const;

@@ -252,7 +252,7 @@ export class LovesacDevice {
     }
 
     const changed = applyResponse(this.state, parsed);
-    if ((changed as unknown) === OUT_OF_RANGE) {
+    if (changed === OUT_OF_RANGE) {
       this.log.warn('Out-of-range value for %s: %d (ignored)',
         CODE_NAMES[parsed.code] ?? `0x${parsed.code.toString(16)}`, parsed.value);
       return;
