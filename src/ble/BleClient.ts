@@ -27,6 +27,7 @@ export class BleClient implements IBleClient {
   private notificationHandler: NotificationHandler | null = null;
   private _connected = false;
   private _resolvedAddress = '';
+  private connectGeneration = 0;
 
   constructor(private readonly log: Logger) {}
 
@@ -38,6 +39,8 @@ export class BleClient implements IBleClient {
     if (this._connected) {
       return;
     }
+
+    const gen = ++this.connectGeneration;
 
     let peripheral: noble.Peripheral | null;
 
@@ -60,27 +63,42 @@ export class BleClient implements IBleClient {
       : peripheral.id ?? peripheral.uuid ?? 'unknown';
     this.log.debug('BLE: Connecting to %s...', resolvedId);
     this._resolvedAddress = resolvedId;
-    // Register disconnect handler BEFORE connecting to avoid race (P0-2)
+    // Register disconnect handler BEFORE connecting to avoid race (P0-2).
+    // Capture the generation so a stale handler from a timed-out attempt does
+    // not clear state that belongs to a newer connection.
     peripheral.once('disconnect', () => {
       this.log.debug('BLE: Disconnected');
-      this._connected = false;
-      this.peripheral = null;
-      this.characteristics = {};
+      if (gen === this.connectGeneration) {
+        this._connected = false;
+        this.peripheral = null;
+        this.characteristics = {};
+      }
     });
 
-    await withTimeout(peripheral.connectAsync(), BLE_CONNECT_TIMEOUT, 'BLE connect');
+    try {
+      await withTimeout(peripheral.connectAsync(), BLE_CONNECT_TIMEOUT, 'BLE connect');
+    } catch (err) {
+      peripheral.disconnectAsync().catch(() => {});
+      throw err;
+    }
     this._connected = true;
     this.peripheral = peripheral;
 
     this.log.debug('BLE: Discovering services and characteristics...');
-    const { characteristics } = await withTimeout(
-      peripheral.discoverSomeServicesAndCharacteristicsAsync(
-        [SOFA_SERVICE_UUID_SHORT],
-        Object.values(CharUUID),
-      ),
-      BLE_DISCOVER_TIMEOUT,
-      'BLE service discovery',
-    );
+    let characteristics: noble.Characteristic[];
+    try {
+      ({ characteristics } = await withTimeout(
+        peripheral.discoverSomeServicesAndCharacteristicsAsync(
+          [SOFA_SERVICE_UUID_SHORT],
+          Object.values(CharUUID),
+        ),
+        BLE_DISCOVER_TIMEOUT,
+        'BLE service discovery',
+      ));
+    } catch (err) {
+      peripheral.disconnectAsync().catch(() => {});
+      throw err;
+    }
 
     for (const char of characteristics) {
       this.characteristics[char.uuid] = char;
