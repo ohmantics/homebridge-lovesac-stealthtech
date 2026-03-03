@@ -365,6 +365,13 @@ export class LovesacAccessory {
     }, 100);
   }
 
+  shutdown(): void {
+    if (this.volumeDebounceTimer) {
+      clearTimeout(this.volumeDebounceTimer);
+      this.volumeDebounceTimer = null;
+    }
+  }
+
   // --- Helpers ---
 
   /**

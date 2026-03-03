@@ -28,6 +28,9 @@ export class LovesacPlatform implements DynamicPlatformPlugin {
     });
 
     this.api.on('shutdown', () => {
+      for (const acc of this.accessories) {
+        acc.shutdown();
+      }
       this.device?.stopPolling();
       this.connectionManager?.disconnect().catch(() => {});
     });
