@@ -52,7 +52,9 @@ export class LovesacDevice {
   private reachable = true;
   mcuVersion = '';
   private versionListeners: (() => void)[] = [];
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollIntervalMs = 0;
+  private basePollIntervalMs = 0;
 
   constructor(
     private readonly connectionManager: BleConnectionManager,
@@ -94,18 +96,26 @@ export class LovesacDevice {
       this.log.info('Background polling disabled');
       return;
     }
+    this.basePollIntervalMs = intervalSeconds * 1000;
+    this.pollIntervalMs = this.basePollIntervalMs;
     this.log.info('Starting background poll every %ds', intervalSeconds);
 
-    const poll = () => {
-      this.requestStateRefresh()
-        .then(() => this.onPollSuccess())
-        .catch(err => this.onPollFailure(errorMessage(err)));
-    };
-
-    // Immediate initial fetch — onReconnect will also fire on first connect
-    poll();
-    this.pollTimer = setInterval(poll, intervalSeconds * 1000);
+    // Immediate initial fetch, then schedule recurring
+    this.poll();
   }
+
+  private poll(): void {
+    this.requestStateRefresh()
+      .then(() => this.onPollSuccess())
+      .catch(err => this.onPollFailure(errorMessage(err)))
+      .finally(() => this.schedulePoll());
+  }
+
+  private schedulePoll(): void {
+    this.pollTimer = setTimeout(() => this.poll(), this.pollIntervalMs);
+  }
+
+  private static readonly MAX_POLL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
   private onPollSuccess(): void {
     if (this.consecutiveFailures > 0) {
@@ -113,6 +123,10 @@ export class LovesacDevice {
     }
     this.consecutiveFailures = 0;
     this.reachable = true;
+    if (this.pollIntervalMs !== this.basePollIntervalMs) {
+      this.pollIntervalMs = this.basePollIntervalMs;
+      this.log.info('Poll interval reset to %ds', this.pollIntervalMs / 1000);
+    }
   }
 
   private onPollFailure(message: string): void {
@@ -127,6 +141,14 @@ export class LovesacDevice {
 
   private markUnreachable(): void {
     this.reachable = false;
+
+    // Exponential backoff: double the poll interval, capped at 10 minutes
+    const newInterval = Math.min(this.pollIntervalMs * 2, LovesacDevice.MAX_POLL_INTERVAL_MS);
+    if (newInterval !== this.pollIntervalMs) {
+      this.pollIntervalMs = newInterval;
+      this.log.info('Poll interval backed off to %ds', this.pollIntervalMs / 1000);
+    }
+
     this.log.warn('Device unreachable after %d consecutive poll failures — resetting cached state',
       this.consecutiveFailures);
 
@@ -145,7 +167,7 @@ export class LovesacDevice {
 
   stopPolling(): void {
     if (this.pollTimer) {
-      clearInterval(this.pollTimer);
+      clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
   }
