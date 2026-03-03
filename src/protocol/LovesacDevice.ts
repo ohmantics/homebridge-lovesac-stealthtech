@@ -63,12 +63,6 @@ export class LovesacDevice {
     this.connectionManager.setNotificationHandler((data) => {
       this.handleNotification(data);
     });
-
-    this.connectionManager.onReconnect(() => {
-      this.requestStateRefresh().catch(err => {
-        this.log.warn('Reconnect state refresh failed: %s', errorMessage(err));
-      });
-    });
   }
 
   onStateChange(listener: StateChangeListener): void {
