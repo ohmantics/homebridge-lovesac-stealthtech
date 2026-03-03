@@ -63,9 +63,12 @@ export class LovesacPlatform implements DynamicPlatformPlugin {
       this.log.info('Setting up device: %s (auto-discovery)', deviceConfig.name);
     }
 
-    // Generate a stable UUID from the BLE address + plugin name
-    // _testSuffix in config allows generating a fresh identity for testing
-    // For auto-discovery, use a fixed seed so the identity is stable
+    // Generate a stable UUID from the BLE address + plugin name.
+    // _testSuffix in config allows generating a fresh identity for testing.
+    // For auto-discovery, use a fixed seed so the identity is stable.
+    // NOTE: Multiple Homebridge instances using auto-discovery on the same
+    // network will collide on this UUID. Configure an explicit BLE address
+    // in that scenario.
     const addressSeed = deviceConfig.address || 'auto';
     const uuidSeed = 'lovesac-st:' + addressSeed + ((rawConfig as Record<string, unknown>)._testSuffix ?? '');
     const uuid = this.api.hap.uuid.generate(uuidSeed);
