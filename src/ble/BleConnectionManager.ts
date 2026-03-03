@@ -137,6 +137,12 @@ export class BleConnectionManager {
             item.resolve();
           } catch (retryErr) {
             item.reject(retryErr as Error);
+            // Systemic failure — drain remaining queue to avoid N more
+            // doomed reconnect attempts for N queued commands
+            const remaining = this.queue.splice(0);
+            for (const queued of remaining) {
+              queued.reject(new Error('Queue drained after connection failure'));
+            }
           }
         }
       }
