@@ -217,6 +217,12 @@ export class LovesacAccessory {
             this.updatePresetSwitches(this.device.state.preset);
             return;
           }
+          if (!this.device.state.power) {
+            // Device is off — reject and push back current state
+            this.platform.log.info('Preset change ignored — device is off');
+            this.updatePresetSwitches(this.device.state.preset);
+            return;
+          }
           try {
             await this.device.setPreset(preset.writeVal);
             this.updatePresetSwitches(preset.readVal);
@@ -240,6 +246,13 @@ export class LovesacAccessory {
     this.setupConfiguredNameHandler(this.quietModeService, 'Quiet Mode');
     this.quietModeService.getCharacteristic(this.Characteristic.On)
       .onSet(async (value: CharacteristicValue) => {
+        if (!this.device.state.power) {
+          this.platform.log.info('Quiet mode change ignored — device is off');
+          setTimeout(() => {
+            this.quietModeService!.getCharacteristic(this.Characteristic.On).updateValue(false);
+          }, 0);
+          return;
+        }
         try {
           await this.device.setQuietMode(value as boolean);
         } catch (err) {
@@ -272,6 +285,14 @@ export class LovesacAccessory {
   // HomeKit Identifier 1-4 maps to SourceValue 0-3
 
   private async setActiveIdentifier(value: CharacteristicValue): Promise<void> {
+    if (!this.device.state.power) {
+      this.platform.log.info('Source change ignored — device is off');
+      setTimeout(() => {
+        this.tvService.getCharacteristic(this.Characteristic.ActiveIdentifier)
+          .updateValue(this.device.state.source + 1);
+      }, 0);
+      return;
+    }
     try {
       const source = (value as number) - 1;
       await this.device.setSource(source as SourceValue);
@@ -284,6 +305,10 @@ export class LovesacAccessory {
   // --- Remote Key ---
 
   private async setRemoteKey(value: CharacteristicValue): Promise<void> {
+    if (!this.device.state.power) {
+      this.platform.log.info('Remote key ignored — device is off');
+      return;
+    }
     try {
       const RemoteKey = this.Characteristic.RemoteKey;
       switch (value) {
@@ -310,6 +335,10 @@ export class LovesacAccessory {
   // --- Mute ---
 
   private async setMute(value: CharacteristicValue): Promise<void> {
+    if (!this.device.state.power) {
+      this.platform.log.info('Mute change ignored — device is off');
+      return;
+    }
     try {
       await this.device.setMute(value as boolean);
     } catch (err) {
@@ -321,6 +350,10 @@ export class LovesacAccessory {
   // --- Volume Selector (up/down buttons in Control Center remote) ---
 
   private async setVolumeSelector(value: CharacteristicValue): Promise<void> {
+    if (!this.device.state.power) {
+      this.platform.log.info('Volume selector ignored — device is off');
+      return;
+    }
     try {
       if (value === this.Characteristic.VolumeSelector.INCREMENT) {
         await this.device.volumeUp(this.config.volumeStep);
@@ -336,6 +369,15 @@ export class LovesacAccessory {
   // --- Volume Proxy (Fan/Lightbulb) ---
 
   private async setVolumeOn(value: CharacteristicValue): Promise<void> {
+    if (!this.device.state.power) {
+      this.platform.log.info('Volume on/off ignored — device is off');
+      if (this.volumeService) {
+        setTimeout(() => {
+          this.volumeService!.getCharacteristic(this.Characteristic.On).updateValue(false);
+        }, 0);
+      }
+      return;
+    }
     try {
       if (!value) {
         await this.device.setMute(true);
@@ -354,6 +396,19 @@ export class LovesacAccessory {
   }
 
   private async setVolumePercent(value: CharacteristicValue): Promise<void> {
+    if (!this.device.state.power) {
+      this.platform.log.info('Volume change ignored — device is off');
+      if (this.volumeService) {
+        const levelChar = this.config.volumeControl === 'fan'
+          ? this.Characteristic.RotationSpeed : this.Characteristic.Brightness;
+        const currentPercent = this.device.volumeToPercent(this.device.state.volume);
+        setTimeout(() => {
+          this.volumeService!.getCharacteristic(levelChar).updateValue(currentPercent);
+        }, 0);
+      }
+      return;
+    }
+
     const percent = value as number;
 
     // Debounce: HomeKit slider sends many rapid updates.
