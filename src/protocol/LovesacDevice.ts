@@ -87,6 +87,9 @@ export class LovesacDevice {
   }
 
   startPolling(intervalSeconds: number): void {
+    if (this.pollTimer) {
+      return;
+    }
     if (intervalSeconds <= 0) {
       this.log.info('Background polling disabled');
       return;
@@ -174,11 +177,19 @@ export class LovesacDevice {
   }
 
   async volumeUp(step: number): Promise<void> {
+    if (!this.stateInitialized) {
+      this.log.warn('volumeUp ignored — state not yet initialized');
+      return;
+    }
     const newVol = Math.min(MAX_VOLUME, this.state.volume + step);
     await this.setVolume(newVol);
   }
 
   async volumeDown(step: number): Promise<void> {
+    if (!this.stateInitialized) {
+      this.log.warn('volumeDown ignored — state not yet initialized');
+      return;
+    }
     const newVol = Math.max(0, this.state.volume - step);
     await this.setVolume(newVol);
   }
@@ -252,7 +263,12 @@ export class LovesacDevice {
       return;
     }
 
-    this.stateInitialized = true;
+    // Only mark initialized once we've received a Power notification,
+    // which is included in every state dump. This prevents onGet from
+    // returning stale sentinel values for fields we haven't received yet.
+    if (parsed.code === ResponseCode.Power) {
+      this.stateInitialized = true;
+    }
 
     // Any valid notification means the device is reachable
     if (this.consecutiveFailures > 0 || !this.reachable) {
