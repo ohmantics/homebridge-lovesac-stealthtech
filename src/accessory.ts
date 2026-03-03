@@ -225,6 +225,7 @@ export class LovesacAccessory {
 
     // --- Listen for device state changes ---
     this.device.onStateChange(this.handleStateChange.bind(this));
+    this.device.onUnreachable(this.handleUnreachable.bind(this));
 
     // Start background polling (also triggers initial state fetch via onReconnect)
     this.device.startPolling(this.config.pollInterval);
@@ -377,6 +378,30 @@ export class LovesacAccessory {
     for (const ps of this.presetSwitches) {
       ps.service.getCharacteristic(this.Characteristic.On)
         .updateValue(ps.presetRead === activePreset);
+    }
+  }
+
+  // --- Unreachable Handler ---
+
+  private handleUnreachable(): void {
+    this.platform.log.warn('Device unreachable — updating HomeKit to show inactive');
+
+    this.tvService.getCharacteristic(this.Characteristic.Active)
+      .updateValue(this.Characteristic.Active.INACTIVE);
+
+    if (this.volumeService) {
+      this.volumeService.getCharacteristic(this.Characteristic.On)
+        .updateValue(false);
+    }
+
+    for (const ps of this.presetSwitches) {
+      ps.service.getCharacteristic(this.Characteristic.On)
+        .updateValue(false);
+    }
+
+    if (this.quietModeService) {
+      this.quietModeService.getCharacteristic(this.Characteristic.On)
+        .updateValue(false);
     }
   }
 

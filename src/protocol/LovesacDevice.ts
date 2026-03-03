@@ -1,9 +1,9 @@
 import type { Logger } from 'homebridge';
 import { BleConnectionManager } from '../ble/BleConnectionManager';
-import { DeviceState, createDefaultState, parseNotification, applyResponse, OUT_OF_RANGE } from './responses';
+import { DeviceState, createDefaultState, parseNotification, applyResponse, OUT_OF_RANGE, resetState } from './responses';
 import { ResponseCode, PresetWriteValue, PresetReadValue, SourceValue, presetWriteToRead, PRESET_NAMES, SOURCE_NAMES } from './constants';
 import * as commands from './commands';
-import { MAX_VOLUME, errorMessage } from '../settings';
+import { MAX_VOLUME, errorMessage, UNREACHABLE_THRESHOLD } from '../settings';
 
 const CODE_NAMES: Record<number, string> = {
   [ResponseCode.Volume]: 'Volume',
@@ -41,11 +41,15 @@ function formatStateValue(code: ResponseCode, value: number): string {
 }
 
 export type StateChangeListener = (code: ResponseCode, value: number) => void;
+export type UnreachableListener = () => void;
 
 export class LovesacDevice {
   readonly state: DeviceState;
   private stateListeners: StateChangeListener[] = [];
+  private unreachableListeners: UnreachableListener[] = [];
   private stateInitialized = false;
+  private consecutiveFailures = 0;
+  private reachable = true;
   mcuVersion = '';
   private versionListeners: (() => void)[] = [];
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -71,6 +75,10 @@ export class LovesacDevice {
     this.stateListeners.push(listener);
   }
 
+  onUnreachable(listener: UnreachableListener): void {
+    this.unreachableListeners.push(listener);
+  }
+
   isStateInitialized(): boolean {
     return this.stateInitialized;
   }
@@ -90,15 +98,52 @@ export class LovesacDevice {
       return;
     }
     this.log.info('Starting background poll every %ds', intervalSeconds);
+
+    const poll = () => {
+      this.requestStateRefresh()
+        .then(() => this.onPollSuccess())
+        .catch(err => this.onPollFailure(errorMessage(err)));
+    };
+
     // Immediate initial fetch — onReconnect will also fire on first connect
-    this.requestStateRefresh().catch(err => {
-      this.log.warn('Initial state refresh failed (will retry on next poll): %s', errorMessage(err));
-    });
-    this.pollTimer = setInterval(() => {
-      this.requestStateRefresh().catch(err => {
-        this.log.warn('Background poll failed: %s', errorMessage(err));
-      });
-    }, intervalSeconds * 1000);
+    poll();
+    this.pollTimer = setInterval(poll, intervalSeconds * 1000);
+  }
+
+  private onPollSuccess(): void {
+    if (this.consecutiveFailures > 0) {
+      this.log.info('Poll succeeded after %d consecutive failure(s)', this.consecutiveFailures);
+    }
+    this.consecutiveFailures = 0;
+    this.reachable = true;
+  }
+
+  private onPollFailure(message: string): void {
+    this.consecutiveFailures++;
+    this.log.warn('Background poll failed (%d/%d): %s',
+      this.consecutiveFailures, UNREACHABLE_THRESHOLD, message);
+
+    if (this.consecutiveFailures >= UNREACHABLE_THRESHOLD && this.reachable) {
+      this.markUnreachable();
+    }
+  }
+
+  private markUnreachable(): void {
+    this.reachable = false;
+    this.log.warn('Device unreachable after %d consecutive poll failures — resetting cached state',
+      this.consecutiveFailures);
+
+    // Reset state to sentinels so next successful connection triggers full re-sync
+    resetState(this.state);
+    this.stateInitialized = false;
+
+    for (const listener of this.unreachableListeners) {
+      try {
+        listener();
+      } catch (err) {
+        this.log.error('Unreachable listener error: %s', errorMessage(err));
+      }
+    }
   }
 
   stopPolling(): void {
@@ -214,6 +259,13 @@ export class LovesacDevice {
     }
 
     this.stateInitialized = true;
+
+    // Any valid notification means the device is reachable
+    if (this.consecutiveFailures > 0 || !this.reachable) {
+      this.log.info('Device reachable again after %d poll failure(s)', this.consecutiveFailures);
+      this.consecutiveFailures = 0;
+      this.reachable = true;
+    }
 
     if (changed) {
       this.log.debug('State: %s = %s', CODE_NAMES[parsed.code] ?? `0x${parsed.code.toString(16)}`, formatStateValue(parsed.code, parsed.value));

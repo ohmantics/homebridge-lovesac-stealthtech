@@ -25,6 +25,28 @@ export const CharUUID = {
 export const MAX_VOLUME = 36;
 export const BLE_SCAN_TIMEOUT = 15000;
 
+// BLE operation timeouts (milliseconds)
+export const BLE_CONNECT_TIMEOUT = 30_000;
+export const BLE_WRITE_TIMEOUT = 10_000;
+export const BLE_DISCONNECT_TIMEOUT = 10_000;
+export const BLE_DISCOVER_TIMEOUT = 15_000;
+
+// Consecutive poll failures before marking device unreachable
+export const UNREACHABLE_THRESHOLD = 3;
+
+/**
+ * Race a promise against a timeout. Rejects with a descriptive error if
+ * the timeout fires first. The underlying promise is NOT cancelled — the
+ * caller must handle cleanup.
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer!));
+}
+
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }

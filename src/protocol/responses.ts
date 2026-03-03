@@ -34,6 +34,15 @@ export function createDefaultState(): DeviceState {
   };
 }
 
+/**
+ * Reset an existing DeviceState in-place to sentinel defaults.
+ * This ensures the next state dump from the device will trigger
+ * change events for every field (same mechanism as initial state).
+ */
+export function resetState(state: DeviceState): void {
+  Object.assign(state, createDefaultState());
+}
+
 export interface ParsedResponse {
   code: ResponseCode;
   value: number;

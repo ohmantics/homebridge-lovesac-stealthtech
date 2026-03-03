@@ -1,6 +1,10 @@
 import type { Logger } from 'homebridge';
 import noble from '@stoprocent/noble';
-import { SOFA_SERVICE_UUID_SHORT, CharUUID, BLE_SCAN_TIMEOUT } from '../settings';
+import {
+  SOFA_SERVICE_UUID_SHORT, CharUUID, BLE_SCAN_TIMEOUT,
+  BLE_CONNECT_TIMEOUT, BLE_WRITE_TIMEOUT, BLE_DISCONNECT_TIMEOUT, BLE_DISCOVER_TIMEOUT,
+  withTimeout,
+} from '../settings';
 
 export type NotificationHandler = (data: Buffer) => void;
 
@@ -64,14 +68,18 @@ export class BleClient implements IBleClient {
       this.characteristics = {};
     });
 
-    await peripheral.connectAsync();
+    await withTimeout(peripheral.connectAsync(), BLE_CONNECT_TIMEOUT, 'BLE connect');
     this._connected = true;
     this.peripheral = peripheral;
 
     this.log.debug('BLE: Discovering services and characteristics...');
-    const { characteristics } = await peripheral.discoverSomeServicesAndCharacteristicsAsync(
-      [SOFA_SERVICE_UUID_SHORT],
-      Object.values(CharUUID),
+    const { characteristics } = await withTimeout(
+      peripheral.discoverSomeServicesAndCharacteristicsAsync(
+        [SOFA_SERVICE_UUID_SHORT],
+        Object.values(CharUUID),
+      ),
+      BLE_DISCOVER_TIMEOUT,
+      'BLE service discovery',
     );
 
     for (const char of characteristics) {
@@ -84,9 +92,9 @@ export class BleClient implements IBleClient {
   async disconnect(): Promise<void> {
     if (this.peripheral && this._connected) {
       try {
-        await this.peripheral.disconnectAsync();
+        await withTimeout(this.peripheral.disconnectAsync(), BLE_DISCONNECT_TIMEOUT, 'BLE disconnect');
       } catch {
-        // Already disconnected
+        // Already disconnected or timed out — clean up regardless
       }
     }
     this._connected = false;
@@ -104,7 +112,7 @@ export class BleClient implements IBleClient {
       throw new Error(`Characteristic ${characteristicUuid} not found. Available: ${Object.keys(this.characteristics).join(', ')}`);
     }
     // Write without response (as per protocol spec)
-    await char.writeAsync(data, true);
+    await withTimeout(char.writeAsync(data, true), BLE_WRITE_TIMEOUT, 'BLE write');
   }
 
   async subscribeNotifications(handler: NotificationHandler): Promise<void> {
@@ -128,7 +136,7 @@ export class BleClient implements IBleClient {
       }
     });
 
-    await upstream.subscribeAsync();
+    await withTimeout(upstream.subscribeAsync(), BLE_WRITE_TIMEOUT, 'BLE subscribe');
     this.log.debug('BLE: Subscribed to UpStream notifications');
   }
 
