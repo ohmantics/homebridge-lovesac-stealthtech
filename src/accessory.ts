@@ -528,6 +528,25 @@ export class LovesacAccessory {
           this.volumeService.getCharacteristic(this.Characteristic.On)
             .updateValue(this.device.state.power && !this.device.state.mute && this.device.state.volume > 0);
         }
+        if (this.device.state.power) {
+          // Restore preset switches and quiet mode from cached state —
+          // they were cleared when power went off, and the poll may not
+          // re-fire those listeners if the values haven't changed.
+          this.updatePresetSwitches(this.device.state.preset);
+          if (this.quietModeService) {
+            this.quietModeService.getCharacteristic(this.Characteristic.On)
+              .updateValue(this.device.state.quietMode);
+          }
+        } else {
+          // When powered off, clear preset switches and quiet mode so their
+          // tiles don't misleadingly show "On" / "Powered On".
+          for (const ps of this.presetSwitches) {
+            ps.service.getCharacteristic(this.Characteristic.On).updateValue(false);
+          }
+          if (this.quietModeService) {
+            this.quietModeService.getCharacteristic(this.Characteristic.On).updateValue(false);
+          }
+        }
         break;
 
       case ResponseCode.Volume:
