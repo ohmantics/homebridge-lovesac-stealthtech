@@ -210,7 +210,9 @@ export class LovesacAccessory {
       switchService.getCharacteristic(this.Characteristic.On)
         .onSet(async (value: CharacteristicValue) => {
           if (!value) {
-            return; // Turning off is a no-op — can't unselect a preset
+            // Can't unselect a preset — push back the real state
+            this.updatePresetSwitches(this.device.state.preset);
+            return;
           }
           try {
             await this.device.setPreset(preset.writeVal);
