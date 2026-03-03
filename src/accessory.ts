@@ -32,6 +32,7 @@ export class LovesacAccessory {
   private quietModeService: Service | null = null;
 
   private volumeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private volumeDebounceResolve: (() => void) | null = null;
 
   private readonly Characteristic: typeof Characteristic;
 
@@ -350,25 +351,36 @@ export class LovesacAccessory {
     }
   }
 
-  private setVolumePercent(value: CharacteristicValue): void {
+  private async setVolumePercent(value: CharacteristicValue): Promise<void> {
     const percent = value as number;
 
-    // Debounce: HomeKit slider sends many rapid updates
+    // Debounce: HomeKit slider sends many rapid updates.
+    // Superseded calls resolve immediately (their value was never sent).
     if (this.volumeDebounceTimer) {
       clearTimeout(this.volumeDebounceTimer);
+      this.volumeDebounceResolve?.();
     }
-    this.volumeDebounceTimer = setTimeout(() => {
-      const volume = this.device.percentToVolume(percent);
-      this.device.setVolume(volume).catch((err) => {
-        this.platform.log.error('Failed to set volume: %s', errorMessage(err));
-      });
-    }, 100);
+
+    return new Promise<void>((resolve, reject) => {
+      this.volumeDebounceResolve = resolve;
+      this.volumeDebounceTimer = setTimeout(() => {
+        this.volumeDebounceTimer = null;
+        this.volumeDebounceResolve = null;
+        const volume = this.device.percentToVolume(percent);
+        this.device.setVolume(volume).then(resolve, (err) => {
+          this.platform.log.error('Failed to set volume: %s', errorMessage(err));
+          reject(new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE));
+        });
+      }, 100);
+    });
   }
 
   shutdown(): void {
     if (this.volumeDebounceTimer) {
       clearTimeout(this.volumeDebounceTimer);
       this.volumeDebounceTimer = null;
+      this.volumeDebounceResolve?.();
+      this.volumeDebounceResolve = null;
     }
   }
 
