@@ -556,7 +556,7 @@ export class LovesacAccessory {
             ? this.Characteristic.RotationSpeed : this.Characteristic.Brightness;
           this.volumeService.getCharacteristic(levelChar).updateValue(percent);
           this.volumeService.getCharacteristic(this.Characteristic.On)
-            .updateValue(!this.device.state.mute && this.device.state.volume > 0);
+            .updateValue(this.device.state.power && !this.device.state.mute && this.device.state.volume > 0);
         }
         break;
 
@@ -565,7 +565,7 @@ export class LovesacAccessory {
           .updateValue(this.device.state.mute);
         if (this.volumeService) {
           this.volumeService.getCharacteristic(this.Characteristic.On)
-            .updateValue(!this.device.state.mute && this.device.state.volume > 0);
+            .updateValue(this.device.state.power && !this.device.state.mute && this.device.state.volume > 0);
         }
         break;
 
@@ -575,11 +575,13 @@ export class LovesacAccessory {
         break;
 
       case ResponseCode.Preset:
-        this.updatePresetSwitches(this.device.state.preset);
+        if (this.device.state.power) {
+          this.updatePresetSwitches(this.device.state.preset);
+        }
         break;
 
       case ResponseCode.QuietMode:
-        if (this.quietModeService) {
+        if (this.quietModeService && this.device.state.power) {
           this.quietModeService.getCharacteristic(this.Characteristic.On)
             .updateValue(this.device.state.quietMode);
         }
