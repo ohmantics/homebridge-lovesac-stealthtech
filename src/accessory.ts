@@ -84,11 +84,25 @@ export class LovesacAccessory {
 
     // Active (power)
     this.tvService.getCharacteristic(this.Characteristic.Active)
-      .onSet(this.setPower.bind(this));
+      .onSet(this.setPower.bind(this))
+      .onGet(() => {
+        if (!this.device.isStateInitialized()) {
+          throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+        return this.device.state.power
+          ? this.Characteristic.Active.ACTIVE
+          : this.Characteristic.Active.INACTIVE;
+      });
 
     // ActiveIdentifier (input source)
     this.tvService.getCharacteristic(this.Characteristic.ActiveIdentifier)
-      .onSet(this.setActiveIdentifier.bind(this));
+      .onSet(this.setActiveIdentifier.bind(this))
+      .onGet(() => {
+        if (!this.device.isStateInitialized()) {
+          throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+        return this.device.state.source + 1;
+      });
 
     // Remote key
     this.tvService.getCharacteristic(this.Characteristic.RemoteKey)
@@ -142,7 +156,13 @@ export class LovesacAccessory {
         this.Characteristic.VolumeControlType.RELATIVE_WITH_CURRENT);
 
     this.speakerService.getCharacteristic(this.Characteristic.Mute)
-      .onSet(this.setMute.bind(this));
+      .onSet(this.setMute.bind(this))
+      .onGet(() => {
+        if (!this.device.isStateInitialized()) {
+          throw new HapStatusError(HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+        }
+        return this.device.state.mute;
+      });
 
     this.speakerService.getCharacteristic(this.Characteristic.VolumeSelector)
       .onSet(this.setVolumeSelector.bind(this));
