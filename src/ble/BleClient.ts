@@ -154,7 +154,7 @@ export class BleClient implements IBleClient {
       }
     });
 
-    await withTimeout(upstream.subscribeAsync(), BLE_WRITE_TIMEOUT, 'BLE subscribe');
+    await withTimeout(upstream.subscribeAsync(), BLE_DISCOVER_TIMEOUT, 'BLE subscribe');
     this.log.debug('BLE: Subscribed to UpStream notifications');
   }
 
