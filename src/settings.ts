@@ -26,7 +26,7 @@ export const MAX_VOLUME = 36;
 export const BLE_SCAN_TIMEOUT = 15000;
 
 // BLE operation timeouts (milliseconds)
-export const BLE_CONNECT_TIMEOUT = 30_000;
+export const BLE_CONNECT_TIMEOUT = 10_000;
 export const BLE_WRITE_TIMEOUT = 10_000;
 export const BLE_DISCONNECT_TIMEOUT = 10_000;
 export const BLE_DISCOVER_TIMEOUT = 15_000;

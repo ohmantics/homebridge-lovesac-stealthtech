@@ -82,7 +82,14 @@ export class BleClient implements IBleClient {
     try {
       await withTimeout(peripheral.connectAsync(), BLE_CONNECT_TIMEOUT, 'BLE connect');
     } catch (err) {
-      peripheral.disconnectAsync().catch(() => {});
+      // Cancel the pending HCI connection and reset the adapter so
+      // subsequent scans still work (BlueZ gets stuck otherwise).
+      if (peripheral.state === 'connecting') {
+        try { peripheral.cancelConnect(); } catch { /* best effort */ }
+      } else {
+        peripheral.disconnectAsync().catch(() => {});
+      }
+      noble.reset();
       throw err;
     }
     this._connected = true;
