@@ -31,8 +31,11 @@ export const BLE_WRITE_TIMEOUT = 10_000;
 export const BLE_DISCONNECT_TIMEOUT = 10_000;
 export const BLE_DISCOVER_TIMEOUT = 15_000;
 
+// Delay between scan retry attempts (milliseconds)
+export const BLE_SCAN_RETRY_DELAY = 2000;
+
 // Consecutive poll failures before marking device unreachable
-export const UNREACHABLE_THRESHOLD = 3;
+export const UNREACHABLE_THRESHOLD = 6;
 
 /**
  * Race a promise against a timeout. Rejects with a descriptive error if

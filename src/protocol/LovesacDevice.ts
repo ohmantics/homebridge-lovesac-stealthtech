@@ -134,20 +134,27 @@ export class LovesacDevice {
     this.log.warn('Background poll failed (%d/%d): %s',
       this.consecutiveFailures, UNREACHABLE_THRESHOLD, message);
 
-    if (this.consecutiveFailures >= UNREACHABLE_THRESHOLD && this.reachable) {
-      this.markUnreachable();
+    // Apply backoff at each threshold multiple (6, 12, 18, …) while unreachable.
+    // First crossing also marks the device unreachable and resets cached state.
+    if (this.consecutiveFailures >= UNREACHABLE_THRESHOLD
+        && this.consecutiveFailures % UNREACHABLE_THRESHOLD === 0) {
+      this.backoffPollInterval();
+      if (this.reachable) {
+        this.markUnreachable();
+      }
     }
   }
 
-  private markUnreachable(): void {
-    this.reachable = false;
-
-    // Exponential backoff: double the poll interval, capped at 10 minutes
+  private backoffPollInterval(): void {
     const newInterval = Math.min(this.pollIntervalMs * 2, LovesacDevice.MAX_POLL_INTERVAL_MS);
     if (newInterval !== this.pollIntervalMs) {
       this.pollIntervalMs = newInterval;
       this.log.info('Poll interval backed off to %ds', this.pollIntervalMs / 1000);
     }
+  }
+
+  private markUnreachable(): void {
+    this.reachable = false;
 
     this.log.warn('Device unreachable after %d consecutive poll failures — resetting cached state',
       this.consecutiveFailures);

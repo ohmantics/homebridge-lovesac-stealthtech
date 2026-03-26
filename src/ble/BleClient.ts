@@ -3,6 +3,7 @@ import noble from '@stoprocent/noble';
 import {
   SOFA_SERVICE_UUID_SHORT, CharUUID, BLE_SCAN_TIMEOUT,
   BLE_CONNECT_TIMEOUT, BLE_WRITE_TIMEOUT, BLE_DISCONNECT_TIMEOUT, BLE_DISCOVER_TIMEOUT,
+  BLE_SCAN_RETRY_DELAY,
   withTimeout,
 } from '../settings';
 
@@ -42,27 +43,31 @@ export class BleClient implements IBleClient {
 
     const gen = ++this.connectGeneration;
 
-    let peripheral: noble.Peripheral | null;
-
-    if (address) {
-      this.log.debug('BLE: Starting scan for %s...', address);
-      peripheral = await this.scanForDevice(address);
-      if (!peripheral) {
-        throw new Error(`Device ${address} not found`);
-      }
-    } else {
-      this.log.debug('BLE: Starting auto-discovery scan...');
-      peripheral = await this.scanForAnyDevice();
-      if (!peripheral) {
-        throw new Error('No Lovesac StealthTech device found');
+    // Fast path: reuse cached peripheral from a prior connection (skip scan)
+    if (this.peripheral) {
+      this.log.debug('BLE: Reconnecting to cached peripheral %s...', this._resolvedAddress);
+      try {
+        await this.connectPeripheral(this.peripheral, gen);
+        return;
+      } catch (err) {
+        this.log.debug('BLE: Cached peripheral connect failed: %s — falling back to scan',
+          (err as Error).message);
+        this.peripheral = null;
       }
     }
+
+    // Slow path: scan for the device (with one retry)
+    const peripheral = await this.scanWithRetry(address, gen);
 
     const resolvedId = peripheral.address !== '' && peripheral.address !== 'unknown'
       ? peripheral.address
       : peripheral.id ?? peripheral.uuid ?? 'unknown';
-    this.log.debug('BLE: Connecting to %s...', resolvedId);
     this._resolvedAddress = resolvedId;
+
+    await this.connectPeripheral(peripheral, gen);
+  }
+
+  private async connectPeripheral(peripheral: noble.Peripheral, gen: number): Promise<void> {
     // Register disconnect handler BEFORE connecting to avoid race (P0-2).
     // Capture the generation so a stale handler from a timed-out attempt does
     // not clear state that belongs to a newer connection.
@@ -70,7 +75,6 @@ export class BleClient implements IBleClient {
       this.log.debug('BLE: Disconnected');
       if (gen === this.connectGeneration) {
         this._connected = false;
-        this.peripheral = null;
         this.characteristics = {};
       }
     });
@@ -107,6 +111,38 @@ export class BleClient implements IBleClient {
     this.log.debug('BLE: Found %d characteristics', Object.keys(this.characteristics).length);
   }
 
+  private async scanWithRetry(address: string | undefined, gen: number): Promise<noble.Peripheral> {
+    const label = address ?? 'auto-discovery';
+    const scanFn = address
+      ? () => this.scanForDevice(address)
+      : () => this.scanForAnyDevice();
+
+    this.log.debug('BLE: Starting scan for %s...', label);
+    let peripheral = await scanFn();
+    if (peripheral) {
+      return peripheral;
+    }
+
+    // First scan missed — retry once after a short delay
+    if (gen !== this.connectGeneration) {
+      throw new Error('Connection attempt superseded');
+    }
+    this.log.info('BLE: Scan found nothing, retrying in %ds...', BLE_SCAN_RETRY_DELAY / 1000);
+    await new Promise(r => setTimeout(r, BLE_SCAN_RETRY_DELAY));
+
+    if (gen !== this.connectGeneration) {
+      throw new Error('Connection attempt superseded');
+    }
+    peripheral = await scanFn();
+    if (peripheral) {
+      return peripheral;
+    }
+
+    throw new Error(address
+      ? `Device ${address} not found`
+      : 'No Lovesac StealthTech device found');
+  }
+
   async disconnect(): Promise<void> {
     if (this.peripheral && this._connected) {
       try {
@@ -116,8 +152,8 @@ export class BleClient implements IBleClient {
       }
     }
     this._connected = false;
-    this.peripheral = null;
     this.characteristics = {};
+    // Keep this.peripheral cached for fast reconnect
   }
 
   isConnected(): boolean {
