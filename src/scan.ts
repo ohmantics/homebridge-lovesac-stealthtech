@@ -5,7 +5,7 @@
  *    or: node dist/scan.js
  */
 
-import noble from '@stoprocent/noble';
+import noble, { type Peripheral } from '@stoprocent/noble';
 import { SOFA_SERVICE_UUID_SHORT, BLE_SCAN_TIMEOUT } from './settings';
 
 console.log('Scanning for Lovesac StealthTech devices (%ds)...', BLE_SCAN_TIMEOUT / 1000);
@@ -13,7 +13,7 @@ console.log('Make sure the soundbar is powered on and no other app is connected.
 
 const found: { id: string; name: string; rssi: number }[] = [];
 
-noble.on('discover', (peripheral: noble.Peripheral) => {
+noble.on('discover', (peripheral: Peripheral) => {
   const name = peripheral.advertisement?.localName ?? '(unnamed)';
   const rssi = peripheral.rssi ?? 0;
   const id = peripheral.address !== '' && peripheral.address !== 'unknown'

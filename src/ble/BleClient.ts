@@ -1,11 +1,12 @@
 import type { Logger } from 'homebridge';
-import noble from '@stoprocent/noble';
+import noble, { type Peripheral, type Characteristic } from '@stoprocent/noble';
 import {
   SOFA_SERVICE_UUID_SHORT, CharUUID, BLE_SCAN_TIMEOUT,
   BLE_CONNECT_TIMEOUT, BLE_WRITE_TIMEOUT, BLE_DISCONNECT_TIMEOUT, BLE_DISCOVER_TIMEOUT,
   BLE_SCAN_RETRY_DELAY,
   withTimeout,
 } from '../settings';
+
 
 export type NotificationHandler = (data: Buffer) => void;
 
@@ -19,11 +20,11 @@ export interface IBleClient {
 }
 
 interface CharacteristicMap {
-  [uuid: string]: noble.Characteristic;
+  [uuid: string]: Characteristic;
 }
 
 export class BleClient implements IBleClient {
-  private peripheral: noble.Peripheral | null = null;
+  private peripheral: Peripheral | null = null;
   private characteristics: CharacteristicMap = {};
   private notificationHandler: NotificationHandler | null = null;
   private _connected = false;
@@ -67,7 +68,7 @@ export class BleClient implements IBleClient {
     await this.connectPeripheral(peripheral, gen);
   }
 
-  private async connectPeripheral(peripheral: noble.Peripheral, gen: number): Promise<void> {
+  private async connectPeripheral(peripheral: Peripheral, gen: number): Promise<void> {
     // Register disconnect handler BEFORE connecting to avoid race (P0-2).
     // Capture the generation so a stale handler from a timed-out attempt does
     // not clear state that belongs to a newer connection.
@@ -96,7 +97,7 @@ export class BleClient implements IBleClient {
     this.peripheral = peripheral;
 
     this.log.debug('BLE: Discovering services and characteristics...');
-    let characteristics: noble.Characteristic[];
+    let characteristics: Characteristic[];
     try {
       ({ characteristics } = await withTimeout(
         peripheral.discoverSomeServicesAndCharacteristicsAsync(
@@ -118,7 +119,7 @@ export class BleClient implements IBleClient {
     this.log.debug('BLE: Found %d characteristics', Object.keys(this.characteristics).length);
   }
 
-  private async scanWithRetry(address: string | undefined, gen: number): Promise<noble.Peripheral> {
+  private async scanWithRetry(address: string | undefined, gen: number): Promise<Peripheral> {
     const label = address ?? 'auto-discovery';
     const scanFn = address
       ? () => this.scanForDevice(address)
@@ -201,15 +202,15 @@ export class BleClient implements IBleClient {
     this.log.debug('BLE: Subscribed to UpStream notifications');
   }
 
-  private scanForAnyDevice(): Promise<noble.Peripheral | null> {
-    return this.scan((_peripheral: noble.Peripheral) => {
+  private scanForAnyDevice(): Promise<Peripheral | null> {
+    return this.scan((_peripheral: Peripheral) => {
       return true; // accept the first device with the right service UUID
     });
   }
 
-  private scanForDevice(address: string): Promise<noble.Peripheral | null> {
+  private scanForDevice(address: string): Promise<Peripheral | null> {
     const normalized = address.toLowerCase().replace(/[:-]/g, '');
-    return this.scan((peripheral: noble.Peripheral) => {
+    return this.scan((peripheral: Peripheral) => {
       const id = peripheral.id?.toLowerCase().replace(/[:-]/g, '') ?? '';
       const addr = peripheral.address?.toLowerCase().replace(/[:-]/g, '') ?? '';
       const uuid = peripheral.uuid?.toLowerCase().replace(/[:-]/g, '') ?? '';
@@ -217,9 +218,9 @@ export class BleClient implements IBleClient {
     });
   }
 
-  private scan(match: (peripheral: noble.Peripheral) => boolean): Promise<noble.Peripheral | null> {
+  private scan(match: (peripheral: Peripheral) => boolean): Promise<Peripheral | null> {
     return new Promise((resolve, reject) => {
-      const onDiscover = (peripheral: noble.Peripheral) => {
+      const onDiscover = (peripheral: Peripheral) => {
         if (!match(peripheral)) {
           return;
         }
