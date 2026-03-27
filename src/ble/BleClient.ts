@@ -1,11 +1,26 @@
 import type { Logger } from 'homebridge';
-import noble, { type Peripheral, type Characteristic } from '@stoprocent/noble';
+import type { Peripheral, Characteristic } from '@stoprocent/noble';
 import {
   SOFA_SERVICE_UUID_SHORT, CharUUID, BLE_SCAN_TIMEOUT,
   BLE_CONNECT_TIMEOUT, BLE_WRITE_TIMEOUT, BLE_DISCONNECT_TIMEOUT, BLE_DISCOVER_TIMEOUT,
   BLE_SCAN_RETRY_DELAY,
   withTimeout,
 } from '../settings';
+
+// Lazy-import noble to avoid opening an HCI socket in Homebridge's main
+// process. The top-level import runs during plugin registration (main
+// process), but BLE is only used in the child bridge. Deferring the
+// require() ensures the HCI socket is only opened once, in the child.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const getNoble = (() => {
+  let instance: typeof import('@stoprocent/noble').default | null = null;
+  return () => {
+    if (!instance) {
+      instance = require('@stoprocent/noble') as typeof import('@stoprocent/noble').default;
+    }
+    return instance;
+  };
+})();
 
 
 export type NotificationHandler = (data: Buffer) => void;
@@ -90,7 +105,7 @@ export class BleClient implements IBleClient {
       } else {
         peripheral.disconnectAsync().catch(() => {});
       }
-      noble.reset();
+      getNoble().reset();
       throw err;
     }
     this._connected = true;
@@ -232,9 +247,9 @@ export class BleClient implements IBleClient {
       };
 
       const cleanup = () => {
-        noble.stopScanning();
-        noble.removeListener('discover', onDiscover);
-        noble.removeListener('stateChange', onStateChange);
+        getNoble().stopScanning();
+        getNoble().removeListener('discover', onDiscover);
+        getNoble().removeListener('stateChange', onStateChange);
       };
 
       const timeout = setTimeout(() => {
@@ -242,10 +257,10 @@ export class BleClient implements IBleClient {
         resolve(null);
       }, BLE_SCAN_TIMEOUT);
 
-      noble.on('discover', onDiscover);
+      getNoble().on('discover', onDiscover);
 
       const startScan = () => {
-        noble.startScanning([SOFA_SERVICE_UUID_SHORT], false, (err?: Error) => {
+        getNoble().startScanning([SOFA_SERVICE_UUID_SHORT], false, (err?: Error) => {
           if (err) {
             clearTimeout(timeout);
             cleanup();
@@ -264,10 +279,10 @@ export class BleClient implements IBleClient {
         }
       };
 
-      if (noble.state === 'poweredOn') {
+      if (getNoble().state === 'poweredOn') {
         startScan();
       } else {
-        noble.once('stateChange', onStateChange);
+        getNoble().once('stateChange', onStateChange);
       }
     });
   }
